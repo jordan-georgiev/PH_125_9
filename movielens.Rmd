@@ -32,7 +32,7 @@ The following steps will be followed and documented during the Movielens project
 
 ```{r prep1, include=FALSE}
 ##########################################################
-# 1. Data loading - code provided by PH129.x
+# 1. Data loading - code provided by PH125-9.x
 ##########################################################
 
 # Note: this process could take a couple of minutes
@@ -378,15 +378,17 @@ kable(rmse_results, booktabs = TRUE, escape = FALSE) %>%
 Our result is much higher than the one we are aiming to beat (0.86490), so we will add a movie bias to our model. We know, that some movies are generally rated higher than others, so we will try to accommodate this in our model bi adding a movie bias \b_i.
 $$ Y_{u,i} = \mu + b_i + \varepsilon_{i,u} $$
 ```{r prep6, include=TRUE, echo=TRUE}
-# Movie effect
+# Add Movie effect
 movie_avgs <- train_set %>% 
   group_by(movieId) %>% 
   summarize(b_i = mean(rating - mu))
 
+# Crete prediction
 predicted_ratings <- mu + test_set %>%
   left_join(movie_avgs, by="movieId") %>%
   pull(b_i)
 
+# Calculate RMSE mu + b_i
 rmse_movie_effect <- RMSE(predicted_ratings, test_set$rating)
 ```
 
@@ -399,18 +401,20 @@ kable(rmse_results, booktabs = TRUE, escape = FALSE) %>%
 We see how our RMSE is decreasing. Now we are adding the user bias, since some users are more picky and others just love most movies.
 $$ Y_{u,i} = \mu + b_i + b_u+ \varepsilon_{i,u} $$
 ```{r prep7, include=TRUE, echo=TRUE}
-# User effect
+# Add User effect
 user_avgs <- train_set %>%
   left_join(movie_avgs, by="movieId") %>%
   group_by(userId) %>%
   summarise(b_u = mean(rating - mu - b_i))
 
+# Crete prediction
 predicted_ratings <- test_set %>%
   left_join(movie_avgs, by='movieId') %>%
   left_join(user_avgs, by='userId') %>%
   mutate(pred = mu + b_i + b_u) %>%
   pull(pred)
 
+# Calculate RMSE mu + b_i + b_u
 rmse_user_effect <- RMSE(test_set$rating, predicted_ratings)
 ```
 
@@ -429,6 +433,7 @@ genre_avgs <- train_set %>%
   group_by(genres) %>%
   summarise(b_g = mean(rating - mu - b_i - b_u))
 
+# Create prediction
 predicted_ratings <- test_set %>%
   left_join(movie_avgs, by='movieId') %>%
   left_join(user_avgs, by='userId') %>%
@@ -436,6 +441,7 @@ predicted_ratings <- test_set %>%
   mutate(pred = mu + b_i + b_u + b_g) %>%
   pull(pred)
 
+# Calculate RMSE mu + b_i + b_u + b_g
 rmse_genre_effect <- RMSE(test_set$rating, predicted_ratings)
 ```
 
@@ -449,7 +455,7 @@ Now we will use regularization (penalized least squares), which permits us to pe
 $$\frac{1}{N}\sum_{u, i}(y_{u, i}-\mu-b_i-b_u-b_g)^2 + \lambda(\sum_i b_{i}^2 + \sum_u b_{u}^2 + \sum_g b_{g}^2) $$
 The first term is the mean squared error and the second is a penalty term that gets larger when many \b variables are large. We will minimize the equation to find the $\lambda$ (tuning parameter) for which we will get the minimum for RMSE. We can use cross-validation to choose it.
 ```{r prep9, include=TRUE, echo=TRUE}
-# Regularization
+# Regularization - find lambda for min RMSE
 lambdas <- seq(1, 7, 0.25)
 rmses <- sapply(lambdas, function(lambda) {
   mu <- mean(train_set$rating)
@@ -499,6 +505,7 @@ lambda <- opt_lambda
 We can now calculate the RMSE after regularization and we observe that it was reduced further.
 
 ```{r echo=FALSE}
+# Save RMSE mu + b_i + b_u + b_g + regularization
 rmse_results <- bind_rows(rmse_results, data.frame(method="Regularization", RMSE = min_rmse))
 kable(rmse_results, booktabs = TRUE, escape = FALSE) %>%
   kable_styling(position = "center", latex_options = c("striped"))
@@ -522,13 +529,15 @@ b_g <- train_set %>%
   group_by(genres) %>%
   summarize(b_g = sum(rating - b_i - b_u - mu)/(n() + lambda))
 
-# Final result with final_holdout_test
+# Final prediction with final_holdout_test
 predicted_ratings_final <- final_holdout_test %>%
   left_join(b_i, by='movieId') %>%
   left_join(b_u, by='userId') %>%
   left_join(b_g, by='genres') %>%
   mutate(pred = mu + b_i + b_u + b_g) %>%
   pull(pred)
+
+# Final RMSE for final_holdout_test
 RMSE_final <- RMSE(final_holdout_test$rating, predicted_ratings_final)
 ```
 

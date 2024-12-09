@@ -1,5 +1,5 @@
 ##########################################################
-# 1. Data loading - code provided by PH129.x
+# 1. Data loading - code provided by PH125-9.x
 ##########################################################
 
 # Note: this process could take a couple of minutes
@@ -239,44 +239,49 @@ rmse_results <- data.frame(method = "Naive Mean", RMSE = rmse_baseline)
 kable(rmse_results, booktabs = TRUE, escape = FALSE) %>%
   kable_styling(position = "center", latex_options = c("striped"))
 
-# Movie effect
+# Add Movie effect
 movie_avgs <- train_set %>% 
   group_by(movieId) %>% 
   summarize(b_i = mean(rating - mu))
 
+# Crete prediction
 predicted_ratings <- mu + test_set %>%
   left_join(movie_avgs, by="movieId") %>%
   pull(b_i)
 
+# Calculate RMSE mu + b_i
 rmse_movie_effect <- RMSE(predicted_ratings, test_set$rating)
 rmse_results <- bind_rows(rmse_results, data.frame(method = "Movie Effect", RMSE = rmse_movie_effect))
 kable(rmse_results, booktabs = TRUE, escape = FALSE) %>%
   kable_styling(position = "center", latex_options = c("striped"))
 
-# User effect
+# Add User effect
 user_avgs <- train_set %>%
   left_join(movie_avgs, by="movieId") %>%
   group_by(userId) %>%
   summarise(b_u = mean(rating - mu - b_i))
 
+# Crete prediction
 predicted_ratings <- test_set %>%
   left_join(movie_avgs, by='movieId') %>%
   left_join(user_avgs, by='userId') %>%
   mutate(pred = mu + b_i + b_u) %>%
   pull(pred)
 
+# Calculate RMSE mu + b_i + b_u
 rmse_user_effect <- RMSE(test_set$rating, predicted_ratings)
 rmse_results <- bind_rows(rmse_results, data.frame(method="Movie + User Effects", RMSE = rmse_user_effect))
 kable(rmse_results, booktabs = TRUE, escape = FALSE) %>%
   kable_styling(position = "center", latex_options = c("striped"))
 
-# Genres effect
+# Add Genres effect
 genre_avgs <- train_set %>%
   left_join(movie_avgs, by="movieId") %>%
   left_join(user_avgs, by="userId") %>%
   group_by(genres) %>%
   summarise(b_g = mean(rating - mu - b_i - b_u))
 
+# Crete prediction
 predicted_ratings <- test_set %>%
   left_join(movie_avgs, by='movieId') %>%
   left_join(user_avgs, by='userId') %>%
@@ -284,12 +289,13 @@ predicted_ratings <- test_set %>%
   mutate(pred = mu + b_i + b_u + b_g) %>%
   pull(pred)
 
+# Calculate RMSE mu + b_i + b_u + b_g
 rmse_genre_effect <- RMSE(test_set$rating, predicted_ratings)
 rmse_results <- bind_rows(rmse_results, data.frame(method="Movie + User + Genre Effects", RMSE = rmse_genre_effect))
 kable(rmse_results, booktabs = TRUE, escape = FALSE) %>%
   kable_styling(position = "center", latex_options = c("striped"))
 
-# Regularization
+# Regularization - find lambda for min RMSE
 lambdas <- seq(1, 7, 0.25)
 rmses <- sapply(lambdas, function(lambda) {
   mu <- mean(train_set$rating)
@@ -332,6 +338,7 @@ graph_6 <-ggplot(data, aes(x = lambdas, y = rmses)) +
   scale_colour_economist()
 lambda <- opt_lambda
 
+# Save RMSE mu + b_i + b_u + b_g + regularization
 rmse_results <- bind_rows(rmse_results, data.frame(method="Regularization", RMSE = min_rmse))
 kable(rmse_results, booktabs = TRUE, escape = FALSE) %>%
   kable_styling(position = "center", latex_options = c("striped"))
@@ -355,7 +362,7 @@ b_g <- train_set %>%
   summarize(b_g = sum(rating - b_i - b_u - mu)/(n() + lambda))
 
 #########################################################
-# Final result with final_holdout_test
+# Final prediction with final_holdout_test
 #########################################################
 predicted_ratings_final <- final_holdout_test %>%
   left_join(b_i, by='movieId') %>%
@@ -364,6 +371,7 @@ predicted_ratings_final <- final_holdout_test %>%
   mutate(pred = mu + b_i + b_u + b_g) %>%
   pull(pred)
 
+# Final RMSE for final_holdout_test
 RMSE_final <- RMSE(final_holdout_test$rating, predicted_ratings_final)
 
 rmse_results <- bind_rows(rmse_results, data.frame(method="Final Holdout Test", RMSE = RMSE_final))
