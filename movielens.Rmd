@@ -263,6 +263,7 @@ In our model we want to predict the rating a user could give to a movie in the t
 ```{r echo=TRUE}
 mean(edx$rating)
 ```
+
 ```{r prep4, include=FALSE}
 # Rating histogram
 graph_2 <- edx %>%
@@ -445,7 +446,7 @@ predicted_ratings <- test_set %>%
 rmse_genre_effect <- RMSE(test_set$rating, predicted_ratings)
 ```
 
-```{r echo=TRUE}
+```{r echo=FALSE}
 rmse_results <- bind_rows(rmse_results, data.frame(method="Movie + User + Genre Effects", RMSE = rmse_genre_effect))
 kable(rmse_results, booktabs = TRUE, escape = FALSE) %>%
   kable_styling(position = "center", latex_options = c("striped"))
